@@ -1,5 +1,6 @@
 import { cn } from "../../lib/utils";
 import { AnimatePresence, motion } from "motion/react";
+import { Card, CardTitle, CardDescription } from "./card";
 
 import { useState } from "react";
 
@@ -48,64 +49,16 @@ export const HoverEffect = ({
               />
             )}
           </AnimatePresence>
-          <Card>
-            <CardTitle>{item.title}</CardTitle>
-            <CardDescription>{item.description}</CardDescription>
+          <Card className="rounded-2xl h-full w-full p-4 overflow-hidden bg-card border border-border group-hover:border-muted-foreground relative z-20">
+            <div className="relative z-50">
+              <div className="p-4">
+                <CardTitle className="text-foreground font-bold tracking-wide mt-4">{item.title}</CardTitle>
+                <CardDescription className="mt-8 text-muted-foreground tracking-wide leading-relaxed text-sm">{item.description}</CardDescription>
+              </div>
+            </div>
           </Card>
         </a>
       ))}
     </div>
-  );
-};
-
-export const Card = ({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) => {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl h-full w-full p-4 overflow-hidden bg-card border border-border group-hover:border-muted-foreground relative z-20",
-        className
-      )}
-    >
-      <div className="relative z-50">
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-};
-export const CardTitle = ({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) => {
-  return (
-    <h4 className={cn("text-foreground font-bold tracking-wide mt-4", className)}>
-      {children}
-    </h4>
-  );
-};
-export const CardDescription = ({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) => {
-  return (
-    <p
-      className={cn(
-        "mt-8 text-muted-foreground tracking-wide leading-relaxed text-sm",
-        className
-      )}
-    >
-      {children}
-    </p>
   );
 };

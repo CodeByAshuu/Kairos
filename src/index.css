@@ -192,11 +192,11 @@
 
   /* Animations */
   .fade-in {
-    @apply animate-in fade-in-0 duration-500;
+    @apply animate-fade-in;
   }
 
   .slide-up {
-    @apply animate-in slide-in-from-bottom-4 duration-500;
+    @apply animate-slide-in-from-bottom;
   }
 
   /* Success Animation */

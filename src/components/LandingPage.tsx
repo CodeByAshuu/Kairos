@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { CheckCircle, FileText, Zap, Target, Star, ArrowRight, Upload, MessageSquare, BarChart3 } from "lucide-react";
+import { CheckCircle, FileText, Zap, Star, ArrowRight } from "lucide-react";
 import { HoverEffect } from "./ui/card-hover-effect";
 
 const features = [
@@ -114,7 +114,7 @@ const LandingPage = () => {
                       <span className="text-success font-semibold">94%</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-gradient-primary h-2 rounded-full w-[94%]"></div>
+                      <div className="bg-gradient-ats h-2 rounded-full w-[94%]"></div>
                     </div>
                   </div>
                   <div className="border-t pt-4">
