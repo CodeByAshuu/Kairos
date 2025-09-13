@@ -5,6 +5,7 @@ import { Card } from "../components/ui/card";
 import { Textarea } from "../components/ui/textarea";
 // import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { parseFile } from "../utils/fileParser";
 import { 
   FileText, 
   Upload, 
@@ -32,12 +33,12 @@ const Dashboard = () => {
   const [uploadedFileName, setUploadedFileName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+
   const [analysisResult, setAnalysisResult] = useState<{
     atsScore: number;
     improvements: Array<{ original: string; improved: string }>;
     coverLetter: string;
   } | null>(null);
-  
 
   useEffect(() => {
     // Check if user is logged in
@@ -86,28 +87,34 @@ const Dashboard = () => {
     setIsAnalyzing(true);
     
     try {
-      // Import the function dynamically to avoid issues
+      // Call the real Gemini API
       const { analyzeResumeWithGemini } = await import("../services/geminiService");
-      
-      // Call the Gemini API
       const analysisResult = await analyzeResumeWithGemini(resumeText, jobDescription);
       
-      // Save to history in Supabase
-      const { error } = await supabase
-        .from('resume_analyses')
-        .insert({
-          user_id: user?.id,
-          resume_text: resumeText,
-          job_description: jobDescription,
-          ats_score: analysisResult.atsScore,
-          improvements: analysisResult.improvements,
-          cover_letter: analysisResult.coverLetter,
-          created_at: new Date().toISOString(),
-        });
+      // Save to history in Supabase with proper error handling
+      if (user?.id) {
+        try {
+          // Use a type assertion to work around the TypeScript error
+          const { error } = await (supabase as any)
+            .from('resume_analyses')
+            .insert({
+              user_id: user.id,
+              resume_text: resumeText,
+              job_description: jobDescription,
+              ats_score: analysisResult.atsScore,
+              improvements: analysisResult.improvements,
+              cover_letter: analysisResult.coverLetter,
+              created_at: new Date().toISOString(),
+            });
 
-      if (error) {
-        console.error("Supabase error:", error);
-        // Don't throw here, we still want to show the results
+          if (error) {
+            console.error("Supabase insert error:", error);
+            // Don't throw here, we still want to show the results
+          }
+        } catch (dbError) {
+          console.error("Database operation failed:", dbError);
+          // Continue even if database operations fail
+        }
       }
       
       // Update credits
@@ -288,16 +295,20 @@ const Dashboard = () => {
                     type="file"
                     accept=".pdf,.docx,.txt"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
                         setUploadedFileName(file.name);
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          const text = e.target?.result as string;
+                        try {
+                          const text = await parseFile(file);
                           setResumeText(text);
-                        };
-                        reader.readAsText(file);
+                        } catch (error) {
+                          toast({
+                            variant: "destructive",
+                            title: "Error reading file",
+                            description: "Could not read the uploaded file. Please try another file.",
+                          });
+                        }
                       }
                     }}
                   />

@@ -18,9 +18,19 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+
+// Define proper TypeScript interfaces
+interface HistoryItem {
+  id: number;
+  date: string;
+  resumeName: string;
+  jobTitle: string;
+  matchScore: number;
+}
 
 // Mock data for demonstration
-const mockHistoryData = [
+const mockHistoryData: HistoryItem[] = [
   {
     id: 1,
     date: "2024-01-15",
@@ -59,9 +69,9 @@ const mockHistoryData = [
 ];
 
 const History = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [historyData, setHistoryData] = useState(mockHistoryData);
+  const [historyData, setHistoryData] = useState<HistoryItem[]>(mockHistoryData);
   const navigate = useNavigate();
 
   useEffect(() => {

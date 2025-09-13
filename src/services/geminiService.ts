@@ -41,7 +41,7 @@ export const analyzeResumeWithGemini = async (resumeText: string, jobDescription
     
     try {
       return JSON.parse(cleanedText);
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse JSON:", cleanedText);
       throw new Error("Failed to parse analysis response");
     }
