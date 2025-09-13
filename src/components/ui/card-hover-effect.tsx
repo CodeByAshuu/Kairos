@@ -39,8 +39,8 @@ export const HoverEffect = ({
                 layoutId="hoverBackground"
                 initial={{ opacity: 0 }}
                 animate={{
-                  opacity: 1,
-                  transition: { duration: 0.15 },
+                  opacity: 0.7,
+                  transition: { duration: 0.75 },
                 }}
                 exit={{
                   opacity: 0,
