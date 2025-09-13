@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -19,6 +19,7 @@ import {
   Loader2
 } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { useToast } from "../hooks/use-toast";
 
 const Dashboard = () => {
@@ -26,7 +27,7 @@ const Dashboard = () => {
   const [jobDescription, setJobDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasResults, setHasResults] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [credits, setCredits] = useState(3);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ const Dashboard = () => {
     checkAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         navigate("/login");
       } else {
@@ -71,11 +72,11 @@ const Dashboard = () => {
     setIsAnalyzing(true);
     
     try {
-      const response = await fetch('https://mnfhqersfyyjdfxxcobs.supabase.co/functions/v1/analyze-resume', {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uZmhxZXJzZnl5amRmeHhjb2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1MjgyMDMsImV4cCI6MjA3MzEwNDIwM30.BRBVodB0qTWxtAulN_IwZgB5G32tfe1BXpTQVMLZYEs`,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
           resumeText,
@@ -83,7 +84,7 @@ const Dashboard = () => {
         }),
       });
 
-      const result = await response.json();
+      await response.json();
       
       setIsAnalyzing(false);
       setHasResults(true);
@@ -91,7 +92,7 @@ const Dashboard = () => {
         title: "Resume analyzed successfully!",
         description: "Your tailored results are ready.",
       });
-    } catch (error) {
+    } catch {
       setIsAnalyzing(false);
       toast({
         variant: "destructive",
