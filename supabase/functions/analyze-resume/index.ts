@@ -33,26 +33,26 @@ serve(async (req) => {
           contents: [{
             parts: [{
               text: `Analyze this resume against the job description and provide:
-1. ATS compatibility score (0-100)
-2. Three specific improvements for resume bullets
-3. Generate a cover letter
+                  1. ATS compatibility score (0-100)
+                  2. Three specific improvements for resume bullets
+                  3. Generate a cover letter
 
-Resume:
-${resumeText}
+                Resume:
+                ${resumeText}
 
-Job Description:
-${jobDescription}
+                Job Description:
+                ${jobDescription}
 
-Please respond in JSON format with the following structure:
-{
-  "atsScore": number,
-  "improvements": [
-    {"before": "original bullet", "after": "improved bullet"},
-    {"before": "original bullet", "after": "improved bullet"}, 
-    {"before": "original bullet", "after": "improved bullet"}
-  ],
-  "coverLetter": "cover letter text"
-}`
+                Please respond in JSON format with the following structure:
+                {
+                  "atsScore": number,
+                  "improvements": [
+                    {"before": "original bullet", "after": "improved bullet"},
+                    {"before": "original bullet", "after": "improved bullet"}, 
+                    {"before": "original bullet", "after": "improved bullet"}
+                  ],
+                  "coverLetter": "cover letter text"
+                }`
             }]
           }],
           generationConfig: {

@@ -14,8 +14,8 @@ import {
   History,
   User,
   LogOut,
-  CheckCircle,
-  AlertCircle,
+  // CheckCircle,
+  // AlertCircle,
   Loader2
 } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
@@ -32,6 +32,12 @@ const Dashboard = () => {
   const [uploadedFileName, setUploadedFileName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [analysisResult, setAnalysisResult] = useState<{
+    atsScore: number;
+    improvements: Array<{ original: string; improved: string }>;
+    coverLetter: string;
+  } | null>(null);
+  
 
   useEffect(() => {
     // Check if user is logged in
@@ -68,37 +74,62 @@ const Dashboard = () => {
       return;
     }
 
-    setCredits(credits - 1);
+    if (!resumeText.trim() || !jobDescription.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing information",
+        description: "Please provide both your resume and the job description.",
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          resumeText,
-          jobDescription,
-        }),
-      });
-
-      await response.json();
+      // Import the function dynamically to avoid issues
+      const { analyzeResumeWithGemini } = await import("../services/geminiService");
       
-      setIsAnalyzing(false);
+      // Call the Gemini API
+      const analysisResult = await analyzeResumeWithGemini(resumeText, jobDescription);
+      
+      // Save to history in Supabase
+      const { error } = await supabase
+        .from('resume_analyses')
+        .insert({
+          user_id: user?.id,
+          resume_text: resumeText,
+          job_description: jobDescription,
+          ats_score: analysisResult.atsScore,
+          improvements: analysisResult.improvements,
+          cover_letter: analysisResult.coverLetter,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error("Supabase error:", error);
+        // Don't throw here, we still want to show the results
+      }
+      
+      // Update credits
+      setCredits(credits - 1);
+      
+      // Store the result in state to display
+      setAnalysisResult(analysisResult);
       setHasResults(true);
+      
       toast({
         title: "Resume analyzed successfully!",
         description: "Your tailored results are ready.",
       });
-    } catch {
-      setIsAnalyzing(false);
+    } catch (error) {
+      console.error("Analysis error:", error);
       toast({
         variant: "destructive",
         title: "Analysis failed",
         description: "There was an error analyzing your resume. Please try again.",
       });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -330,8 +361,8 @@ const Dashboard = () => {
                     <BarChart3 className="w-5 h-5 text-foreground" />
                     <h3 className="text-lg font-semibold font-poppins">ATS Compatibility Score</h3>
                   </div>
-                  {!isAnalyzing && (
-                    <span className="text-2xl font-bold text-success">94%</span>
+                  {!isAnalyzing && analysisResult && (
+                    <span className="text-2xl font-bold text-success">{analysisResult.atsScore}%</span>
                   )}
                 </div>
                 
@@ -340,29 +371,15 @@ const Dashboard = () => {
                     <div className="h-2 bg-muted rounded-full animate-pulse"></div>
                     <p className="text-sm text-muted-foreground">Calculating compatibility...</p>
                   </div>
-                ) : (
+                ) : analysisResult && (
                   <>
                     <div className="w-full bg-muted rounded-full h-3 mb-4">
-                      <div className="bg-foreground h-3 rounded-full w-[94%]"></div>
+                      <div 
+                        className="bg-foreground h-3 rounded-full" 
+                        style={{ width: `${analysisResult.atsScore}%` }}
+                      ></div>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-success" />
-                        <span>Keywords optimized</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-success" />
-                        <span>Format ATS-friendly</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <AlertCircle className="w-4 h-4 text-destructive" />
-                        <span>Add 2 more skills</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-success" />
-                        <span>Length appropriate</span>
-                      </div>
-                    </div>
+                    {/* You can add more detailed feedback here based on the score */}
                   </>
                 )}
               </Card>
@@ -380,37 +397,24 @@ const Dashboard = () => {
                       <div key={i} className="h-4 bg-muted rounded animate-pulse"></div>
                     ))}
                   </div>
-                ) : (
+                ) : analysisResult && (
                   <div className="space-y-4">
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="inline-block px-3 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-medium">
-                          Before
-                        </span>
+                    {analysisResult.improvements.map((improvement, index) => (
+                      <div key={index} className="bg-muted/50 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="inline-block px-3 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-medium">
+                            Before
+                          </span>
+                        </div>
+                        <p className="mb-4">{improvement.original}</p>
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="inline-block px-3 py-1 bg-success/10 text-success rounded-full text-xs font-medium">
+                            After
+                          </span>
+                        </div>
+                        <p className="font-medium">{improvement.improved}</p>
                       </div>
-                      <p className="mb-4">"Worked on web development projects"</p>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="inline-block px-3 py-1 bg-success/10 text-success rounded-full text-xs font-medium">
-                          After
-                        </span>
-                      </div>
-                      <p className="font-medium">"Developed 5+ responsive web applications using React.js and Node.js, increasing user engagement by 40%"</p>
-                    </div>
-                    
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="inline-block px-3 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-medium">
-                          Before
-                        </span>
-                      </div>
-                      <p className="mb-4">"Tested and debugged applications"</p>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="inline-block px-3 py-1 bg-success/10 text-success rounded-full text-xs font-medium">
-                          After
-                        </span>
-                      </div>
-                      <p className="font-medium">"Implemented comprehensive testing strategies using Jest and Cypress, reducing production bugs by 60%"</p>
-                    </div>
+                    ))}
                   </div>
                 )}
               </Card>
@@ -428,18 +432,9 @@ const Dashboard = () => {
                       <div key={i} className="h-4 bg-muted rounded animate-pulse" style={{width: `${60 + Math.random() * 40}%`}}></div>
                     ))}
                   </div>
-                ) : (
+                ) : analysisResult && (
                   <div className="bg-muted/50 rounded-lg p-6">
-                    <p className="leading-relaxed">
-                      Dear Hiring Manager,<br/><br/>
-                      
-                      I am excited to apply for the Software Engineer position at your company. With my proven track record of developing responsive web applications and implementing robust testing strategies, I am confident I can contribute significantly to your engineering team.<br/><br/>
-                      
-                      My experience developing 5+ web applications using React.js and Node.js aligns perfectly with your requirements for modern JavaScript frameworks. Additionally, my success in reducing production bugs by 60% through comprehensive testing demonstrates my commitment to code quality...<br/><br/>
-                      
-                      Best regards,<br/>
-                      {user.user_metadata?.full_name || user.email}
-                    </p>
+                    <p className="leading-relaxed whitespace-pre-wrap">{analysisResult.coverLetter}</p>
                   </div>
                 )}
               </Card>
