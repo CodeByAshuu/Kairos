@@ -13,7 +13,7 @@ const features = [
   {
     title: "Cover Letter",
     description: "Generate compelling cover letters tailored to each application. Our AI analyzes the job posting and creates personalized letters that highlight your relevant experience.",
-    link: "#",
+    link: ".",
   },
   {
     title: "ATS Score",
@@ -23,17 +23,17 @@ const features = [
   {
     title: "Job Match",
     description: "See how well your resume matches specific job requirements. Get detailed insights on missing keywords and skills to improve your application success rate.",
-    link: "#",
+    link: ".",
   },
   {
     title: "Keyword Optimization",
     description: "Automatically optimize your resume with industry-specific keywords that hiring managers and ATS systems are looking for in top candidates.",
-    link: "#",
+    link: ",",
   },
   {
     title: "Industry Insights",
     description: "Access data-driven insights about your target industry, including trending skills, salary expectations, and competitive analysis for better positioning.",
-    link: "#",
+    link: "/",
   },
 ];
 
@@ -55,7 +55,7 @@ const LandingPage = () => {
           </div>
           <Button 
             variant="ghost" 
-            className="font-semibold bg-foreground text-background hover:bg-foreground/90"
+            className="font-semibold bg-foreground text-background hover:text-white hover:bg-foreground/80"
             onClick={() => navigate("/login")}
           >
             Sign In
@@ -113,7 +113,7 @@ const LandingPage = () => {
                       <span>ATS Score</span>
                       <span className="text-success font-semibold">94%</span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
                       <div className="bg-gradient-ats h-2 rounded-full w-[94%]"></div>
                     </div>
                   </div>

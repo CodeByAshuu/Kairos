@@ -20,58 +20,22 @@ import {
 import { supabase } from "../integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-// Define proper TypeScript interfaces
-interface HistoryItem {
-  id: number;
-  date: string;
-  resumeName: string;
-  jobTitle: string;
-  matchScore: number;
+// Define proper TypeScript interfaces for real data
+interface ResumeAnalysis {
+  id: string;
+  created_at: string;
+  resume_text: string;
+  job_description: string;
+  ats_score: number;
+  improvements: Array<{ original: string; improved: string }>;
+  cover_letter: string;
 }
-
-// Mock data for demonstration
-const mockHistoryData: HistoryItem[] = [
-  {
-    id: 1,
-    date: "2024-01-15",
-    resumeName: "john_doe_resume.pdf",
-    jobTitle: "Senior Frontend Developer @ Meta",
-    matchScore: 92,
-  },
-  {
-    id: 2,
-    date: "2024-01-14",
-    resumeName: "john_doe_resume_v2.pdf", 
-    jobTitle: "Full Stack Engineer @ Stripe",
-    matchScore: 89,
-  },
-  {
-    id: 3,
-    date: "2024-01-13",
-    resumeName: "john_doe_resume.pdf",
-    jobTitle: "Software Engineer @ Google",
-    matchScore: 95,
-  },
-  {
-    id: 4,
-    date: "2024-01-12",
-    resumeName: "john_doe_resume.pdf",
-    jobTitle: "React Developer @ Netflix",
-    matchScore: 87,
-  },
-  {
-    id: 5,
-    date: "2024-01-11",
-    resumeName: "john_doe_resume.pdf",
-    jobTitle: "Frontend Engineer @ Amazon",
-    matchScore: 90,
-  },
-];
 
 const History = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [historyData, setHistoryData] = useState<HistoryItem[]>(mockHistoryData);
+  const [historyData, setHistoryData] = useState<ResumeAnalysis[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -82,6 +46,7 @@ const History = () => {
         return;
       }
       setUser(session.user);
+      fetchHistory(session.user.id);
     };
 
     checkAuth();
@@ -91,11 +56,34 @@ const History = () => {
         navigate("/login");
       } else {
         setUser(session.user);
+        fetchHistory(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const fetchHistory = async (userId: string) => {
+  try {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('resume_analyses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching history:", error);
+      return;
+    }
+
+    setHistoryData(data || []);
+  } catch (error) {
+    console.error("Error fetching history:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -103,8 +91,7 @@ const History = () => {
   };
 
   const filteredHistory = historyData.filter(item =>
-    item.resumeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())
+    item.job_description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getScoreColor = (score: number) => {
@@ -113,18 +100,38 @@ const History = () => {
     return "text-destructive";
   };
 
-  const handleView = (id: number) => {
-    // Navigate to detailed view or open modal
-    console.log("View item:", id);
+  const handleView = (id: string) => {
+    // Navigate to detailed view
+    navigate(`/analysis/${id}`);
   };
 
-  const handleRerun = (id: number) => {
-    // Re-run analysis
-    console.log("Rerun analysis for:", id);
+  const handleRerun = async (analysis: ResumeAnalysis) => {
+    // Re-run analysis with the same data
+    navigate("/dashboard", {
+      state: {
+        resumeText: analysis.resume_text,
+        jobDescription: analysis.job_description
+      }
+    });
   };
 
-  const handleDelete = (id: number) => {
-    setHistoryData(prev => prev.filter(item => item.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('resume_analyses')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error("Error deleting analysis:", error);
+        return;
+      }
+
+      // Remove from local state
+      setHistoryData(prev => prev.filter(item => item.id !== id));
+    } catch (error) {
+      console.error("Error deleting analysis:", error);
+    }
   };
 
   if (!user) {
@@ -213,7 +220,7 @@ const History = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Search by resume name or job title..."
+              placeholder="Search by job description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -222,7 +229,12 @@ const History = () => {
 
           {/* History Cards */}
           <div className="grid gap-4">
-            {filteredHistory.length === 0 ? (
+            {isLoading ? (
+              <Card className="p-8 text-center">
+                <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <h3 className="text-lg font-semibold mb-2">Loading history...</h3>
+              </Card>
+            ) : filteredHistory.length === 0 ? (
               <Card className="p-8 text-center">
                 <HistoryIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No history found</h3>
@@ -238,22 +250,14 @@ const History = () => {
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">
-                        {new Date(item.date).toLocaleDateString()}
+                        {new Date(item.created_at).toLocaleDateString()}
                       </span>
                     </div>
 
-                    {/* Resume Name */}
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-foreground" />
-                      <span className="text-sm font-medium truncate">
-                        {item.resumeName}
-                      </span>
-                    </div>
-
-                    {/* Job Title */}
+                    {/* Job Title - Extract from job description */}
                     <div className="md:col-span-2">
                       <span className="text-sm text-foreground font-medium">
-                        {item.jobTitle}
+                        {item.job_description.substring(0, 50)}...
                       </span>
                     </div>
 
@@ -262,9 +266,9 @@ const History = () => {
                       <BarChart3 className="w-4 h-4 text-muted-foreground" />
                       <Badge 
                         variant="outline" 
-                        className={`font-bold ${getScoreColor(item.matchScore)}`}
+                        className={`font-bold ${getScoreColor(item.ats_score)}`}
                       >
-                        {item.matchScore}%
+                        {item.ats_score}%
                       </Badge>
                     </div>
 
@@ -281,7 +285,7 @@ const History = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRerun(item.id)}
+                        onClick={() => handleRerun(item)}
                         className="text-muted-foreground hover:text-foreground"
                       >
                         <RefreshCw className="w-4 h-4" />

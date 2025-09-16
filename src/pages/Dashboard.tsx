@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Textarea } from "../components/ui/textarea";
-// import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { parseFile } from "../utils/fileParser";
 import { 
@@ -15,13 +14,18 @@ import {
   History,
   User,
   LogOut,
-  // CheckCircle,
-  // AlertCircle,
   Loader2
 } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { useToast } from "../hooks/use-toast";
+
+// Define interface for analysis result
+interface AnalysisResult {
+  atsScore: number;
+  improvements: Array<{ original: string; improved: string }>;
+  coverLetter: string;
+}
 
 const Dashboard = () => {
   const [resumeText, setResumeText] = useState("");
@@ -31,17 +35,11 @@ const Dashboard = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [credits, setCredits] = useState(3);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [analysisResult, setAnalysisResult] = useState<{
-    atsScore: number;
-    improvements: Array<{ original: string; improved: string }>;
-    coverLetter: string;
-  } | null>(null);
-
   useEffect(() => {
-    // Check if user is logged in
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -53,7 +51,6 @@ const Dashboard = () => {
 
     checkAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         navigate("/login");
@@ -64,6 +61,7 @@ const Dashboard = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+  
 
   const handleTailorResume = async () => {
     if (credits <= 0) {
@@ -89,12 +87,17 @@ const Dashboard = () => {
     try {
       // Call the real Gemini API
       const { analyzeResumeWithGemini } = await import("../services/geminiService");
-      const analysisResult = await analyzeResumeWithGemini(resumeText, jobDescription);
+      console.log("Calling Gemini API with:", { 
+        resumeLength: resumeText.length, 
+        jobDescLength: jobDescription.length 
+      });
       
-      // Save to history in Supabase with proper error handling
+      const analysisResult = await analyzeResumeWithGemini(resumeText, jobDescription);
+      console.log("Analysis result received:", analysisResult);
+      
+      // Save to history in Supabase
       if (user?.id) {
         try {
-          // Use a type assertion to work around the TypeScript error
           const { error } = await (supabase as any)
             .from('resume_analyses')
             .insert({
@@ -109,18 +112,14 @@ const Dashboard = () => {
 
           if (error) {
             console.error("Supabase insert error:", error);
-            // Don't throw here, we still want to show the results
           }
         } catch (dbError) {
           console.error("Database operation failed:", dbError);
-          // Continue even if database operations fail
         }
       }
       
-      // Update credits
+      // Update credits and show results
       setCredits(credits - 1);
-      
-      // Store the result in state to display
       setAnalysisResult(analysisResult);
       setHasResults(true);
       
@@ -129,11 +128,15 @@ const Dashboard = () => {
         description: "Your tailored results are ready.",
       });
     } catch (error) {
-      console.error("Analysis error:", error);
+      console.error("Full analysis error:", error);
+      
+      // Show specific error message if available
+      const errorMessage = error.message || "There was an error analyzing your resume. Please try again.";
+      
       toast({
         variant: "destructive",
         title: "Analysis failed",
-        description: "There was an error analyzing your resume. Please try again.",
+        description: errorMessage,
       });
     } finally {
       setIsAnalyzing(false);
@@ -153,6 +156,24 @@ const Dashboard = () => {
     }
   };
 
+  // Fix the file upload error handling
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFileName(file.name);
+      try {
+        const text = await parseFile(file);
+        setResumeText(text);
+      } catch {
+        toast({
+          variant: "destructive",
+          title: "Error reading file",
+          description: "Could not read the uploaded file. Please try another file.",
+        });
+      }
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -165,7 +186,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background flex relative">
       {/* Sidebar */}
       <div className="w-64 bg-card border-r border-border p-6 flex flex-col fixed h-full overflow-hidden">
-        {/* Logo */}
+        {/* Logo and user info */}
         <div className="flex items-center space-x-2 mb-8">
           <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
             <FileText className="w-5 h-5 text-background" />
@@ -175,7 +196,6 @@ const Dashboard = () => {
           </span>
         </div>
 
-        {/* User Info */}
         <div className="flex items-center space-x-3 mb-8 p-3 bg-muted rounded-lg">
           <div className="w-10 h-10 bg-foreground rounded-full flex items-center justify-center">
             <User className="w-5 h-5 text-background" />
@@ -190,7 +210,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Credits */}
         <div className="flex items-center justify-between bg-muted rounded-lg px-4 py-3 mb-6">
           <div className="flex items-center space-x-2">
             <Zap className="w-4 h-4 text-muted-foreground" />
@@ -199,7 +218,6 @@ const Dashboard = () => {
           <span className="text-lg font-bold text-foreground">{credits}</span>
         </div>
 
-        {/* Navigation */}
         <nav className="space-y-2">
           <a href="#" className="flex items-center space-x-3 text-foreground bg-muted rounded-lg px-4 py-3 font-medium">
             <BarChart3 className="w-5 h-5" />
@@ -213,7 +231,6 @@ const Dashboard = () => {
             <span>History</span>
           </button>
           
-          {/* Sign Out */}
           <button 
             onClick={handleSignOut}
             className="flex items-center space-x-3 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg px-4 py-3 transition-colors w-full text-left"
@@ -295,22 +312,7 @@ const Dashboard = () => {
                     type="file"
                     accept=".pdf,.docx,.txt"
                     className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setUploadedFileName(file.name);
-                        try {
-                          const text = await parseFile(file);
-                          setResumeText(text);
-                        } catch (error) {
-                          toast({
-                            variant: "destructive",
-                            title: "Error reading file",
-                            description: "Could not read the uploaded file. Please try another file.",
-                          });
-                        }
-                      }
-                    }}
+                    onChange={handleFileUpload}
                   />
                 </div>
               </TabsContent>
@@ -390,7 +392,6 @@ const Dashboard = () => {
                         style={{ width: `${analysisResult.atsScore}%` }}
                       ></div>
                     </div>
-                    {/* You can add more detailed feedback here based on the score */}
                   </>
                 )}
               </Card>
